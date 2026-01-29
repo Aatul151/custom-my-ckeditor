@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<title>CKEditor 5 – classic editor build – development sample</title>
+	<style>
+		body {
+			max-width: 800px;
+			margin: 20px auto;
+		}
+	</style>
+</head>
+
+<body>
+
+	<h1>CKEditor 5 – classic editor build – development sample</h1>
+
+	<div id="editor">
+		<h2>Sample</h2>
+
+		<p>This is an instance of the <a
+				href="https://ckeditor.com/docs/ckeditor5/latest/builds/guides/overview.html#classic-editor">classic
+				editor build</a>.</p>
+
+		<figure class="image">
+			<img src="../tests/manual/sample.jpg" alt="Autumn fields" />
+		</figure>
+
+		<p>You can use this sample to validate whether your <a
+				href="https://ckeditor.com/docs/ckeditor5/latest/builds/guides/development/custom-builds.html">custom
+				build</a> works fine.</p>
+	</div>
+	<div id="abc"></div>
+
+	<script src="../build/ckeditor.js"></script>
+	<script>
+		ClassicEditor.create(document.querySelector('#editor'))
+			.then(editor => {
+				window.editor = editor;
+
+				// Add custom CSS to the editor
+				const style = document.createElement('style');
+				style.textContent = `@import url('https://cdn.ckeditor.com/ckeditor5/43.2.0/ckeditor5.css');`
+
+				// .image-style-side { float: right;margin-left: 1.5em;max-width: 50%; }
+				// .image-style-align-left {margin-right:calc(1.5rem/2);margin-top: calc(1.5rem/2);margin-bottom:calc(1.5rem/2);}
+				// .image-style-align-right {margin-left:calc(1.5rem/2);margin-top: calc(1.5rem/2);margin-bottom:calc(1.5rem/2);}
+				// .image{clear: both;text-align: center;margin: .9em auto;    min-width: 50px;}
+				// .image_resized{max-width: 100%;display: block;box-sizing: border-box;}
+				// `;
+				editor.ui.getEditableElement().parentNode.insertBefore(style, editor.ui.getEditableElement());
+
+				// Use contentDom instead of change:data to avoid infinite loop
+				editor.editing.view.document.on('contentDom', () => {
+					console.log("Editor content updated");
+					let data = editor.getData();
+					console.log("data", data);
+					document.querySelector('#abc').innerHTML = data
+				});
+
+				// editor.model.document.on('change:data', () => {
+				// 	console.log("editor")
+				// 	let data = editor.getData();
+				// 	console.log("data", data)
+				// 	data = data.replace(/class="your-class-name"/g, 'style="color: red; font-size: 20px;"');
+				// 	editor.setData(data);
+				// });
+
+				// Listen for changes in the editor content
+				editor.model.document.on('change:data', () => {
+					const editorContent = editor.getData();
+					const wrappedContent = `
+						<style>
+							@import url('https://cdn.ckeditor.com/ckeditor5/43.2.0/ckeditor5.css');
+						</style>
+						<div class="ck-content">
+							${editorContent}
+						</div>
+					`;
+					// Update the content of the target element
+					const targetElement = document.querySelector('#abc');
+					if (targetElement) {
+						targetElement.innerHTML = wrappedContent;
+					} else {
+						console.error('Target element #abc not found');
+					}
+
+
+					// document.querySelector('#abc').innerHTML = editorContent; //updateImageDimensions(editorContent);
+				});
+
+			})
+			.catch(error => {
+				console.error('There was a problem initializing the editor.', error);
+			});
+
+
+		function updateImageDimensions(htmlContent) {
+			try {
+				console.log("htmlContent", htmlContent)
+				const image_style_align_left = "float:left; margin:0 10px 10px 0;"
+				const image_style_align_right = "float:right; margin:0 0 10px 10px;"
+				const image_style_align_center = "max-width:100%; margin:0 auto; display:block;"
+				const image_style_inline = "display:inline;"
+				const image_style_block_align_left = "float:left; margin:0 10px 10px 0; display:inline;"
+				const image_style_block_align_right = "margin:10px 0; display:block;"
+				// Create a DOM parser to parse the HTML
+				const parser = new DOMParser();
+				const doc = parser.parseFromString(htmlContent, 'text/html');
+				// Select all figure tags with class "image image_resized"
+				let figures = Array.from(doc.querySelectorAll('figure.image.image_resized'));
+				console.log("figures", figures)
+
+				figures = figures.concat(Array.from(doc.querySelectorAll('span.image-inline.image_resized')));
+				console.log("figures222", figures)
+				figures?.forEach((figure) => {
+					const img = figure.querySelector('img');
+
+					if (img) {
+						// Get the aspect ratio from the img's style
+						const aspectRatio = img?.style?.aspectRatio || img.getAttribute('style').match(/aspect-ratio:\s*([\d.]+)\/([\d.]+)/);
+						if (aspectRatio) {
+							let [ratioWidth, ratioHeight] = aspectRatio instanceof Array ? [aspectRatio[1], aspectRatio[2]] : aspectRatio.split('/');
+							if (ratioWidth) { ratioWidth = parseInt(ratioWidth?.toString()?.trim()) }
+							if (ratioHeight) { ratioHeight = parseInt(ratioHeight?.toString()?.trim()) }
+							// Get the width from the figure's style
+							let figureWidth = figure.style.width.replace('px', '')?.replace('%', '')?.trim();
+							if (figureWidth) { figureWidth = parseInt(figureWidth) };
+							// Calculate the new height based on aspect ratio
+							const newHeight = Math.round((figureWidth * ratioHeight) / ratioWidth);
+							// Update the img tag's width and height
+							img.setAttribute('width', figureWidth);
+							img.setAttribute('height', newHeight);
+						}
+
+						const classNameAttr = figure.getAttribute('class');
+						console.log("classNameAttr", classNameAttr)
+						let newStyle = undefined;
+						if (classNameAttr?.includes("image-style-align-left")) {
+							newStyle = image_style_align_left;
+						} else if (classNameAttr?.includes("image-style-align-right")) {
+							newStyle = image_style_align_right;
+						} else if (classNameAttr?.includes("image-style-align-center")) {
+							newStyle = image_style_align_center;
+						} else if (classNameAttr?.includes("image-style-inline")) {
+							newStyle = image_style_inline;
+						} else if (classNameAttr?.includes("image-style-block-align-left")) {
+							newStyle = image_style_block_align_left;
+						} else if (classNameAttr?.includes("image-style-block-align-right")) {
+							newStyle = image_style_block_align_right;
+						}
+
+						if (newStyle) {
+							const currentStyle = img.getAttribute('style') || '';
+							const aspectRatioMatch = currentStyle.match(/aspect-ratio:\s*[^;]+/);
+							const aspectRatioStyle = aspectRatioMatch ? aspectRatioMatch[0] + ';' : '';
+							img.setAttribute('style', newStyle + aspectRatioStyle);
+							figure.removeAttribute('width');
+							figure.removeAttribute('style');
+						}
+					}
+				});
+				// Serialize the updated HTML
+				return doc.body.innerHTML;
+			} catch { }
+			return htmlContent;
+		}
+
+	</script>
+
+</body>
+
+</html>
