@@ -117,6 +117,17 @@ ClassicEditor.defaultConfig = {
 			'redo'
 		]
 	},
+	highlight: {
+		options: [
+			{
+				model: 'yellowMarker',
+				class: 'marker-yellow',
+				title: 'Yellow highlight',
+				color: 'var(--ck-highlight-marker-yellow)',
+				type: 'marker'
+			}
+		]
+	},
 	image: {
 		toolbar: [
 			'imageStyle:side',
