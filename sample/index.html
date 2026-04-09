@@ -35,7 +35,104 @@
 
 	<script src="../build/ckeditor.js"></script>
 	<script>
-		ClassicEditor.create(document.querySelector('#editor'),{licenseKey:"GPL"})
+		ClassicEditor.create(document.querySelector('#editor'), {
+			licenseKey: "GPL",
+			customActions: [
+				{
+					id: 'insertTimestamp',
+					label: 'Insert Timestamp',
+					icon:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-.5-13h1v5h-1zm0 6h1v1h-1z"/></svg>`,
+					execute: (editor) => {
+						const timestamp = new Date().toLocaleString();
+						editor.model.change(writer => {
+							const insertPosition = editor.model.document.selection.getFirstPosition();
+							writer.insertText(timestamp, insertPosition);
+						});
+					}
+				},
+				{
+					id: 'highlightSelection',
+					label: 'Highlight Selection',
+					execute: (editor) => {
+						editor.execute('highlight', { value: 'yellowMarker' });
+					}
+				},
+				{
+					id: 'clearFormatting',
+					label: 'Clear Formatting',
+					execute: (editor) => {
+						editor.execute('removeFormat');
+					}
+				},
+				{
+					id: 'insertCustomHTML',
+					label: 'Insert Custom HTML',
+					execute: (editor) => {
+						const customHTML = '<div style="border: 2px solid #ccc; padding: 10px; margin: 10px 0; background-color: #f9f9f9;">Custom Content Block</div>';
+						editor.model.change(writer => {
+							const viewFragment = editor.data.processor.toView(customHTML);
+							const modelFragment = editor.data.toModel(viewFragment);
+							const insertPosition = editor.model.document.selection.getFirstPosition();
+							writer.insert(modelFragment, insertPosition);
+						});
+					}
+				},
+				{
+					id: 'importPDF',
+					label: 'Import PDF',
+					execute: async (editor) => {
+						// Create a file input element
+						const input = document.createElement('input');
+						input.type = 'file';
+						input.accept = '.pdf';
+						input.style.display = 'none';
+
+						input.onchange = async (event) => {
+							const file = event.target.files[0];
+							if (!file) return;
+
+							try {
+								// Show loading message
+								editor.model.change(writer => {
+									const insertPosition = editor.model.document.selection.getFirstPosition();
+									const loadingText = writer.createText('Loading PDF content...');
+									writer.insert(loadingText, insertPosition);
+								});
+
+								// Extract text from PDF
+								const extractedText = await extractTextFromPDF(file);
+
+								// Replace loading message with extracted text
+								editor.model.change(writer => {
+									const document = editor.model.document;
+									const root = document.getRoot();
+
+									// Remove the loading text (assuming it's the last inserted content)
+									const range = document.selection.getFirstRange();
+									if (range) {
+										writer.remove(range);
+									}
+
+									// Insert the extracted text
+									const insertPosition = editor.model.document.selection.getFirstPosition();
+									const textElement = writer.createText(extractedText);
+									writer.insert(textElement, insertPosition);
+								});
+
+							} catch (error) {
+								console.error('Error importing PDF:', error);
+								alert('Error importing PDF. Please check the console for details.');
+							}
+						};
+
+						// Trigger file selection
+						document.body.appendChild(input);
+						input.click();
+						document.body.removeChild(input);
+					}
+				}
+			]
+		})
 			.then(editor => {
 				window.editor = editor;
 
@@ -94,6 +191,52 @@
 			.catch(error => {
 				console.error('There was a problem initializing the editor.', error);
 			});
+
+
+		// PDF Text Extraction Function
+		async function extractTextFromPDF(file) {
+			return new Promise((resolve, reject) => {
+				const reader = new FileReader();
+				reader.onload = async function(event) {
+					try {
+						const typedArray = new Uint8Array(event.target.result);
+
+						// Load PDF.js if not already loaded
+						if (typeof pdfjsLib === 'undefined') {
+							// Load PDF.js from CDN
+							const script = document.createElement('script');
+							script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+							document.head.appendChild(script);
+
+							await new Promise((resolveScript) => {
+								script.onload = resolveScript;
+							});
+						}
+
+						// Initialize PDF.js worker
+						pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+						// Load the PDF document
+						const pdf = await pdfjsLib.getDocument(typedArray).promise;
+						let fullText = '';
+
+						// Extract text from each page
+						for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+							const page = await pdf.getPage(pageNum);
+							const textContent = await page.getTextContent();
+							const pageText = textContent.items.map(item => item.str).join(' ');
+							fullText += pageText + '\n\n';
+						}
+
+						resolve(fullText.trim());
+					} catch (error) {
+						reject(error);
+					}
+				};
+				reader.onerror = () => reject(new Error('Failed to read file'));
+				reader.readAsArrayBuffer(file);
+			});
+		}
 
 
 		function updateImageDimensions(htmlContent) {

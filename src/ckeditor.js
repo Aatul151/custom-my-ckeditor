@@ -44,6 +44,7 @@ import { Highlight } from '@ckeditor/ckeditor5-highlight/src/highlight';
 // import Base64UploadAdapter from '@ckeditor/ckeditor5-upload/src/adapters/base64uploadadapter';
 import LineHeight from './custom/lineHeight';
 import CustomImageStyleUI from './custom/customImageStyle';
+import CustomActions from './custom/customActions';
 
 export default class ClassicEditor extends ClassicEditorBase { }
 
@@ -85,7 +86,8 @@ ClassicEditor.builtinPlugins = [
 	ImageInlineEditing,
 	LineHeight,
 	// CustomImageStyleUI
-	Highlight
+	Highlight,
+	CustomActions
 ];
 
 // Editor configuration.
@@ -105,6 +107,8 @@ ClassicEditor.defaultConfig = {
 			'lineHeight',
 			'indent',
 			'outdent',
+			'|',
+			'customActions',
 			'|',
 			'insertImage',
 			'insertImageViaUrl',
